@@ -1,0 +1,50 @@
+name: Deploy PWA naar GitHub Pages
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Repository ophalen
+        uses: actions/checkout@v4
+
+      - name: 2. Injecteer GitHub Secrets in index.html
+        env:
+          WEERLIVE_KEY: ${{ secrets.WEERLIVE_API_KEY }}
+          ACCU_KEY: ${{ secrets.ACCUWEATHER_API_KEY }}
+        run: |
+          if [ -n "$WEERLIVE_KEY" ]; then
+            sed -i "s|__WEERLIVE_API_KEY__|$WEERLIVE_KEY|g" index.html
+          fi
+          if [ -n "$ACCU_KEY" ]; then
+            sed -i "s|__ACCUWEATHER_API_KEY__|$ACCU_KEY|g" index.html
+          fi
+
+      - name: 3. Configureer GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: 4. Upload PWA-bestanden
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: 5. Publiceer naar GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
