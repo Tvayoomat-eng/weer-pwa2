@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0284c7" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="WeerVergelijker" />
+  <title>WeerVergelijker NL</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230284c7'/%3E%3Ccircle cx='38' cy='40' r='16' fill='%23fbbf24'/%3E%3Cpath d='M32 68h38a14 14 0 0 0 0-28 18 18 0 0 0-34-6 13 13 0 0 0-4 34z' fill='%23ffffff'/%3E%3C/svg%3E" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #0284c7;
+      --primary-light: #e0f2fe;
+      --error: #dc2626;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08);
+      --grid-line: rgba(100, 116, 139, 0.15);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --card-bg: #1e293b;
+        --text: #f8fafc;
+        --text-muted: #94a3b8;
+        --border: #334155;
+        --primary: #38bdf8;
+        --primary-light: #0c4a6e;
+        --error: #f87171;
+        --shadow: 0 2px 6px rgba(0,0,0,0.35);
+        --grid-line: rgba(148, 163, 184, 0.15);
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.4;
+      padding-bottom: 40px;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background-color: var(--card-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: var(--shadow);
+    }
+
+    header h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .icon-btn {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+    }
+
+    .icon-btn:active { opacity: 0.7; }
+    #installBtn { display: none; background: var(--primary); color: #fff; border-color: var(--primary); font-size: 0.82rem; }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+
+    .search-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .search-bar input {
+      flex: 1;
+      padding: 11px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card-bg);
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+    }
+
+    .search-bar input:focus { border-color: var(--primary); }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 0 18px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+
+    .status-bar {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      padding: 0 4px;
+    }
+
+    .consensus-banner {
+      background: var(--primary-light);
+      border: 1px solid var(--primary);
+      border-radius: 14px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .consensus-banner .label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .consensus-banner .val-large { font-size: 1.5rem; font-weight: 800; }
+    .consensus-banner .val-mid { font-size: 1.05rem; font-weight: 700; text-align: right; }
+
+    .section-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin: 22px 2px 10px;
+    }
+
+    .section-title {
+      font-size: 1.02rem;
+      font-weight: 700;
+    }
+
+    .pill-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .pill-btn {
+      background: var(--card-bg);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .pill-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    /* Actueel 2x2 / 4x1 Grid */
+    .current-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    @media (min-width: 720px) {
+      .current-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+
+    .source-card {
+      background: var(--card-bg);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 175px;
+    }
+
+    .source-header { padding: 8px 12px; color: #ffffff; }
+    .source-header h3 { font-size: 0.88rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .source-header p { font-size: 0.68rem; opacity: 0.88; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .source-body {
+      padding: 12px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .temp-row { display: flex; justify-content: space-between; align-items: center; }
+    .temp-val { font-size: 1.4rem; font-weight: 800; }
+    .temp-emoji { font-size: 1.6rem; }
+    .desc-text { font-size: 0.8rem; font-weight: 600; margin: 4px 0; }
+    .meta-text { font-size: 0.72rem; color: var(--text-muted); line-height: 1.35; }
+    .error-box { font-size: 0.74rem; color: var(--error); margin: auto 0; }
+
+    /* Kaarten voor Grafiek, Uurtabel en Dagtabel */
+    .panel-card {
+      background: var(--card-bg);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 290px;
+      width: 100%;
+    }
+
+    .chart-note {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* Uurtabel (72 uur) */
+    .hourly-controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+      max-height: 440px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table.comp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      min-width: 500px;
+    }
+
+    table.comp-table thead th {
+      position: sticky;
+      top: 0;
+      background: var(--card-bg);
+      z-index: 5;
+      text-align: left;
+      color: var(--text-muted);
+      font-weight: 700;
+      font-size: 0.74rem;
+      padding: 8px 6px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    table.comp-table td {
+      padding: 7px 6px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    table.comp-table tr.day-divider td {
+      background: var(--bg);
+      font-weight: 700;
+      font-size: 0.76rem;
+      color: var(--primary);
+      padding: 6px 8px;
+    }
+
+    .hour-cell {
+      font-weight: 700;
+      white-space: nowrap;
+      font-size: 0.78rem;
+    }
+
+    .hour-sub {
+      display: block;
+      font-size: 0.66rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .cell-weather {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .cell-temp { font-weight: 700; font-size: 0.84rem; }
+    .cell-rain { font-size: 0.68rem; color: #0284c7; display: block; }
+    @media (prefers-color-scheme: dark) {
+      .cell-rain { color: #38bdf8; }
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .loader {
+      text-align: center;
+      padding: 48px 16px;
+      color: var(--text-muted);
+    }
+
+    /* Modal voor API-sleutels */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      padding: 16px;
+    }
+
+    .modal-backdrop.active { display: flex; }
+
+    .modal {
+      background: var(--card-bg);
+      color: var(--text);
+      width: 100%;
+      max-width: 440px;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+    }
+
+    .modal h2 { font-size: 1.1rem; margin-bottom: 8px; }
+    .modal p { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 14px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; }
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    .form-group small { display: block; font-size: 0.72rem; color: var(--text-muted); margin-top: 3px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🌦️ WeerVergelijker NL</h1>
+    <div class="header-actions">
+      <button id="installBtn" class="icon-btn" title="Installeer op startscherm">📲 Installeer</button>
+      <button id="keyBtn" class="icon-btn" title="API-sleutels instellen">🔑</button>
+      <button id="refreshBtn" class="icon-btn" title="Forceer verversen">🔄</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <form id="searchForm" class="search-bar">
+      <input type="text" id="searchInput" placeholder="Plaatsnaam of postcode (bijv. 1211 of Hilversum)..." value="Hilversum" required />
+      <button type="submit" class="btn-primary">Zoek</button>
+    </form>
+
+    <div id="statusBar" class="status-bar">Gereed om weerdata op te halen...</div>
+    <div id="appContent"></div>
+  </main>
+
+  <!-- API Key Instellingen Modal -->
+  <div id="keyModal" class="modal-backdrop">
+    <div class="modal">
+      <h2>🔑 API-sleutels beheren</h2>
+      <p>Sleutels worden lokaal op je toestel bewaard. Gebruik je GitHub Secrets, dan zijn ze hier automatisch al ingevuld.</p>
+      <div class="form-group">
+        <label for="weerliveInput">KNMI / Weerlive API Key</label>
+        <input type="text" id="weerliveInput" placeholder="demo" />
+        <small>Gratis via weerlive.nl (levert 24u per uur & 5d per dag)</small>
+      </div>
+      <div class="form-group">
+        <label for="accuInput">AccuWeather API Key</label>
+        <input type="text" id="accuInput" placeholder="Plak hier je AccuWeather key..." />
+        <small>Gratis via developer.accuweather.com (50 calls/dag)</small>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="closeModalBtn" class="icon-btn">Annuleren</button>
+        <button type="button" id="saveKeysBtn" class="btn-primary" style="padding: 8px 16px;">Opslaan & Verversen</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // CONFIGURATIE & GLOBALE STATE
+    // =========================================================================
+    const INJECTED_WEERLIVE_KEY = "__WEERLIVE_API_KEY__";
+    const INJECTED_ACCUWEATHER_KEY = "__ACCUWEATHER_API_KEY__";
+    const CACHE_MINUTES = 20;
+
+    let currentSourcesState = [];
+    let selectedChartMetric = 'maxTemp'; // 'maxTemp' | 'minTemp' | 'rainChance' | 'rainMm'
+    let selectedHourlyDayTab = 0; // 0 = Dag 1 (0-24u), 1 = Dag 2 (24-48u), 2 = Dag 3 (48-72u), 3 = Alle 72u
+    let selectedHourlyStep = 1;   // 1 = Elk uur, 3 = Elke 3 uur
+    let tenDayChartInstance = null;
+
+    function getWeerliveKey() {
+      const saved = localStorage.getItem('cfg_weerlive_key');
+      if (saved && saved.trim() !== '') return saved.trim();
+      if (!INJECTED_WEERLIVE_KEY.startsWith('__') && INJECTED_WEERLIVE_KEY !== '') return INJECTED_WEERLIVE_KEY;
+      return 'demo';
+    }
+
+    function getAccuWeatherKey() {
+      const saved = localStorage.getItem('cfg_accuweather_key');
+      if (saved && saved.trim() !== '') return saved.trim();
+      if (!INJECTED_ACCUWEATHER_KEY.startsWith('__') && INJECTED_ACCUWEATHER_KEY !== '') return INJECTED_ACCUWEATHER_KEY;
+      return '';
+    }
+
+    // =========================================================================
+    // DATUM-, TIJD- EN WEER-HULPFUNCTIES
+    // =========================================================================
+    function parseNum(val) {
+      if (val === null || val === undefined) return null;
+      if (typeof val === 'number') return isNaN(val) ? null : val;
+      const parsed = parseFloat(String(val).trim().replace(',', '.'));
+      return isNaN(parsed) ? null : parsed;
+    }
+
+    function toLocalDateKey(d) {
+      const dt = (d instanceof Date) ? d : new Date(d);
+      if (isNaN(dt.getTime())) return null;
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const day = String(dt.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function toLocalHourKey(d) {
+      const dt = (d instanceof Date) ? d : new Date(d);
+      if (isNaN(dt.getTime())) return null;
+      const datePart = toLocalDateKey(dt);
+      const h = String(dt.getHours()).padStart(2, '0');
+      return `${datePart}T${h}:00`;
+    }
+
+    function formatDayShort(dateKey) {
+      const d = new Date(`${dateKey}T12:00:00`);
+      if (isNaN(d.getTime())) return dateKey;
+      const formatted = d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' });
+      return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    }
+
+    function getNext10DateKeys() {
+      const keys = [];
+      const base = new Date();
+      base.setHours(12, 0, 0, 0);
+      for (let i = 0; i < 10; i++) {
+        const d = new Date(base);
+        d.setDate(base.getDate() + i);
+        keys.push(toLocalDateKey(d));
+      }
+      return keys;
+    }
+
+    function getNext72HourKeys() {
+      const keys = [];
+      const now = new Date();
+      now.setMinutes(0, 0, 0);
+      for (let i = 0; i < 72; i++) {
+        const d = new Date(now.getTime() + i * 3600 * 1000);
+        keys.push(toLocalHourKey(d));
+      }
+      return keys;
+    }
+
+    function emojiFromDesc(desc) {
+      const l = (desc || '').toLowerCase();
+      if (l.includes('onweer') || l.includes('bliksem') || l.includes('thunder')) return '⛈️';
+      if (l.includes('sneeuw') || l.includes('hagel') || l.includes('snow')) return '❄️';
+      if (l.includes('regen') || l.includes('bui') || l.includes('motregen') || l.includes('rain') || l.includes('shower')) {
+        return (l.includes('zon') || l.includes('opklaring') || l.includes('sun')) ? '🌦️' : '🌧️';
+      }
+      if (l.includes('mist') || l.includes('nevel') || l.includes('fog')) return '🌫️';
+      if (l.includes('zwaar bewolkt') || l.includes('betrokken') || l.includes('overcast') || l === 'cc' || l === 'dd') return '☁️';
+      if (l.includes('half') || l.includes('licht bewolkt') || l.includes('wisselend') || l.includes('bewolkt') || l.includes('cloud')) return '⛅';
+      if (l.includes('zon') || l.includes('helder') || l.includes('onbewolkt') || l.includes('clear') || l === 'a') return '☀️';
+      return '🌤️';
+    }
+
+    function buienradarIconToEmoji(iconCode, desc) {
+      if (desc) return emojiFromDesc(desc);
+      const c = (iconCode || '').toLowerCase();
+      if (c.startsWith('a')) return '☀️';
+      if (c.startsWith('b') || c.startsWith('j')) return '⛅';
+      if (c.startsWith('c') || c.startsWith('d') || c.startsWith('o')) return '☁️';
+      if (c.startsWith('f') || c.startsWith('k')) return '🌦️';
+      if (c.startsWith('g') || c.startsWith('s')) return '⛈️';
+      if (c.startsWith('h') || c.startsWith('i') || c.startsWith('l') || c.startsWith('m') || c.startsWith('q')) return '🌧️';
+      if (c.startsWith('n') || c.startsWith('p')) return '🌫️';
+      if (c.startsWith('r') || c.startsWith('t') || c.startsWith('u') || c.startsWith('v') || c.startsWith('w')) return '❄️';
+      return '🌤️';
+    }
+
+    function wmoToDutch(code) {
+      const map = {
+        0: { desc: 'Onbewolkt', emoji: '☀️' },
+        1: { desc: 'Vrijwel onbewolkt', emoji: '🌤️' },
+        2: { desc: 'Half bewolkt', emoji: '⛅' },
+        3: { desc: 'Geheel bewolkt', emoji: '☁️' },
+        45: { desc: 'Mist', emoji: '🌫️' },
+        48: { desc: 'Rijpende mist', emoji: '🌫️' },
+        51: { desc: 'Lichte motregen', emoji: '🌦️' },
+        53: { desc: 'Motregen', emoji: '🌦️' },
+        55: { desc: 'Dichte motregen', emoji: '🌧️' },
+        61: { desc: 'Lichte regen', emoji: '🌦️' },
+        63: { desc: 'Matige regen', emoji: '🌧️' },
+        65: { desc: 'Zware regen', emoji: '🌧️' },
+        71: { desc: 'Lichte sneeuw', emoji: '❄️' },
+        73: { desc: 'Sneeuwval', emoji: '❄️' },
+        75: { desc: 'Zware sneeuwval', emoji: '❄️' },
+        80: { desc: 'Lichte regenbuien', emoji: '🌦️' },
+        81: { desc: 'Regenbuien', emoji: '🌦️' },
+        82: { desc: 'Zware buien', emoji: '🌧️' },
+        95: { desc: 'Onweer', emoji: '⛈️' },
+        96: { desc: 'Onweer met hagel', emoji: '⛈️' },
+        99: { desc: 'Zwaar onweer', emoji: '⛈️' }
+      };
+      return map[code] || { desc: 'Wisselend bewolkt', emoji: '⛅' };
+    }
+
+    async function fetchWithCorsFallback(url) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) return await res.json();
+      } catch (_) {}
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+      const proxyRes = await fetch(proxyUrl);
+      if (proxyRes.ok) return await proxyRes.json();
+      throw new Error(`Kon ${url} niet bereiken`);
+    }
+
+    // =========================================================================
+    // STAP 1: LOCATIE ZOEKEN (PDOK + OPEN-METEO FALLBACK)
+    // =========================================================================
+    async function resolveLocation(query) {
+      const clean = query.trim();
+      try {
+        const pdokUrl = `https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${encodeURIComponent(clean)}&rows=1&fq=type:(woonplaats%20OR%20postcode%20OR%20adres)`;
+        const res = await fetch(pdokUrl);
+        if (res.ok) {
+          const data = await res.json();
+          const doc = data?.response?.docs?.[0];
+          if (doc) {
+            const match = /POINT\(([-\d.]+)\s+([-\d.]+)\)/.exec(doc.centroide_ll || '');
+            if (match) {
+              return {
+                name: doc.woonplaatsnaam || doc.weergavenaam || clean,
+                lon: parseFloat(match[1]),
+                lat: parseFloat(match[2])
+              };
+            }
+          }
+        }
+      } catch (_) {}
+
+      const omUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(clean)}&count=1&language=nl&format=json`;
+      const omRes = await fetch(omUrl);
+      if (omRes.ok) {
+        const omData = await omRes.json();
+        const first = omData?.results?.[0];
+        if (first) {
+          return { name: first.name || clean, lat: first.latitude, lon: first.longitude };
+        }
+      }
+      throw new Error(`Plaats of postcode "${clean}" niet gevonden.`);
+    }
+
+    // =========================================================================
+    // STAP 2: DE 4 WEERBRONNEN (ACTUEEL + 72U PER UUR + 10 DAGEN)
+    // =========================================================================
+
+    // 1. BUIENRADAR (Actuele feed + uitgebreide 14-daagse & uur-feed per station)
+    async function fetchBuienradar(loc) {
+      const color = '#0055a5';
+      try {
+        const res = await fetch('https://data.buienradar.nl/2.0/feed/json');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const stations = data?.actual?.stationmeasurements || [];
+        if (stations.length === 0) throw new Error('Geen meetstations in feed');
+
+        let nearest = stations[0];
+        let minDist = Infinity;
+        for (const st of stations) {
+          if (st.lat && st.lon) {
+            const d = Math.pow(st.lat - loc.lat, 2) + Math.pow(st.lon - loc.lon, 2);
+            if (d < minDist) {
+              minDist = d;
+              nearest = st;
+            }
+          }
+        }
+
+        const dailyMap = {};
+        const hourlyMap = {};
+
+        // Basis 5-daagse verwachting uit de hoofdfeed
+        const fiveDay = data?.forecast?.fivedayforecast || [];
+        for (const d of fiveDay) {
+          const dateKey = String(d.day || '').slice(0, 10);
+          if (dateKey) {
+            dailyMap[dateKey] = {
+              dateKey,
+              minTemp: parseNum(d.mintemperatureMin ?? d.mintemperatureMax),
+              maxTemp: parseNum(d.maxtemperatureMax ?? d.maxtemperatureMin),
+              rainChance: parseNum(d.rainChance),
+              rainMm: parseNum(d.mmRainMax),
+              iconEmoji: emojiFromDesc(d.weatherdescription || '')
+            };
+          }
+        }
+
+        // Haal uitgebreide 14-daagse + uurverwachting op voor het dichtstbijzijnde station
+        const stationId = nearest.stationid || 6260;
+        try {
+          const extData = await fetchWithCorsFallback(`https://forecast.buienradar.nl/2.0/forecast/${stationId}`);
+          const extDays = extData?.days || [];
+          for (const d of extDays) {
+            const dateKey = String(d.date || d.datetime || '').slice(0, 10);
+            if (dateKey) {
+              dailyMap[dateKey] = {
+                dateKey,
+                minTemp: parseNum(d.mintemp ?? d.mintemperature ?? dailyMap[dateKey]?.minTemp),
+                maxTemp: parseNum(d.maxtemp ?? d.maxtemperature ?? dailyMap[dateKey]?.maxTemp),
+                rainChance: parseNum(d.precipitation ?? dailyMap[dateKey]?.rainChance),
+                rainMm: parseNum(d.precipitationmm ?? dailyMap[dateKey]?.rainMm),
+                iconEmoji: buienradarIconToEmoji(d.iconcode, d.weatherdescription)
+              };
+            }
+            const hours = d.hours || [];
+            for (const h of hours) {
+              const rawDt = String(h.datetime || '');
+              if (rawDt.length >= 13) {
+                const hourKey = `${rawDt.slice(0, 13)}:00`;
+                hourlyMap[hourKey] = {
+                  temp: parseNum(h.temperature),
+                  rainChance: parseNum(h.precipitation),
+                  rainMm: parseNum(h.precipitationmm),
+                  iconEmoji: buienradarIconToEmoji(h.iconcode, h.weatherdescription)
+                };
+              }
+            }
+          }
+        } catch (_) {
+          // Als forecast.buienradar.nl faalt, blijft de 5-daagse feed gewoon intact
+        }
+
+        const desc = nearest.weatherdescription || 'Onbekend';
+        return {
+          sourceName: 'Buienradar',
+          subtitle: `Station ${(nearest.stationname || '').replace('Meetstation ', '')}`,
+          color,
+          isSuccess: true,
+          currentTemp: parseNum(nearest.temperature),
+          feelTemp: parseNum(nearest.feeltemperature),
+          currentDescription: desc,
+          currentEmoji: emojiFromDesc(desc),
+          windInfo: `${nearest.winddirection || ''} ${nearest.windspeedBft ?? '-'} Bft`.trim(),
+          precipCurrentMm: parseNum(nearest.rainFallLastHour) ?? 0,
+          dailyMap,
+          hourlyMap
+        };
+      } catch (e) {
+        return { sourceName: 'Buienradar', subtitle: 'Niet beschikbaar', color, isSuccess: false, errorMessage: e.message, dailyMap: {}, hourlyMap: {} };
+      }
+    }
+
+    // 2. KNMI / WEERLIVE (uur_verw + wk_verw)
+    async function fetchWeerlive(loc) {
+      const color = '#e65100';
+      const key = getWeerliveKey();
+      const isDemo = key.toLowerCase() === 'demo';
+      const locParam = isDemo ? 'Amsterdam' : `${loc.lat.toFixed(4)},${loc.lon.toFixed(4)}`;
+      const targetUrl = `https://weerlive.nl/api/weerlive_api_v2.php?key=${encodeURIComponent(key)}&locatie=${encodeURIComponent(locParam)}`;
+
+      try {
+        const data = await fetchWithCorsFallback(targetUrl);
+        if (!data || !data.liveweer || data.liveweer.length === 0) {
+          throw new Error('Geen geldige respons van Weerlive API.');
+        }
+
+        const live = data.liveweer[0];
+        if (live.fout) throw new Error(live.fout);
+
+        const dailyMap = {};
+        const wk = data.wk_verw || [];
+        for (const d of wk) {
+          // Formaat: DD-MM-YYYY
+          const parts = String(d.dag || '').split('-');
+          if (parts.length === 3) {
+            const dateKey = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            dailyMap[dateKey] = {
+              dateKey,
+              minTemp: parseNum(d.min_temp),
+              maxTemp: parseNum(d.max_temp),
+              rainChance: parseNum(d.neersl_perc_dag),
+              rainMm: null,
+              iconEmoji: emojiFromDesc(d.image || '')
+            };
+          }
+        }
+
+        const hourlyMap = {};
+        const uurVerw = data.uur_verw || [];
+        for (const u of uurVerw) {
+          // Formaat u.uur: "23-10-2026 15:00"
+          let hourKey = null;
+          const rawUur = String(u.uur || '').trim();
+          const spaceParts = rawUur.split(' ');
+          if (spaceParts.length === 2) {
+            const dParts = spaceParts[0].split('-');
+            const tParts = spaceParts[1].split(':');
+            if (dParts.length === 3 && tParts.length >= 1) {
+              const datePart = `${dParts[2]}-${dParts[1].padStart(2, '0')}-${dParts[0].padStart(2, '0')}`;
+              const hPart = tParts[0].padStart(2, '0');
+              hourKey = `${datePart}T${hPart}:00`;
+            }
+          } else if (u.timestamp) {
+            hourKey = toLocalHourKey(new Date(Number(u.timestamp) * 1000));
+          }
+
+          if (hourKey) {
+            hourlyMap[hourKey] = {
+              temp: parseNum(u.temp),
+              rainChance: null,
+              rainMm: parseNum(u.neersl),
+              iconEmoji: emojiFromDesc(u.image || '')
+            };
+          }
+        }
+
+        const desc = live.samenv || 'Onbekend';
+        return {
+          sourceName: 'KNMI / Weerlive',
+          subtitle: isDemo ? 'Demo (Amsterdam • 24u/5d)' : `KNMI (${live.plaats || loc.name} • 24u/5d)`,
+          color,
+          isSuccess: true,
+          currentTemp: parseNum(live.temp),
+          feelTemp: parseNum(live.gtemp),
+          currentDescription: desc,
+          currentEmoji: emojiFromDesc(desc),
+          windInfo: `${live.windr || ''} ${live.windbft ?? '-'} Bft`.trim(),
+          precipCurrentMm: null,
+          dailyMap,
+          hourlyMap
+        };
+      } catch (e) {
+        return { sourceName: 'KNMI / Weerlive', subtitle: 'Niet beschikbaar', color, isSuccess: false, errorMessage: e.message, dailyMap: {}, hourlyMap: {} };
+      }
+    }
+
+    // 3. ACCUWEATHER (Met automatische detectie van 10d/72u vs gratis 5d/12u tier)
+    async function fetchAccuWeather(loc) {
+      const color = '#d97706';
+      const key = getAccuWeatherKey();
+      if (!key) {
+        return {
+          sourceName: 'AccuWeather',
+          subtitle: 'API-sleutel vereist',
+          color,
+          isSuccess: false,
+          errorMessage: 'Geen AccuWeather API-key ingesteld. Tik rechtsboven op 🔑.',
+          dailyMap: {},
+          hourlyMap: {}
+        };
+      }
+
+      try {
+        const coordKey = `accu_lockey_${loc.lat.toFixed(2)}_${loc.lon.toFixed(2)}`;
+        let locationKey = localStorage.getItem(coordKey);
+
+        if (!locationKey) {
+          const geoUrl = `https://dataservice.accuweather.com/locations/v1/cities/geoposition/search?apikey=${encodeURIComponent(key)}&q=${loc.lat},${loc.lon}&language=nl-nl`;
+          const geoRes = await fetch(geoUrl);
+          if (geoRes.status === 401 || geoRes.status === 403) {
+            throw new Error('Ongeldige API-key of daglimiet (50 calls) bereikt.');
+          }
+          if (!geoRes.ok) throw new Error(`Locatie-lookup fout (${geoRes.status})`);
+          const geoData = await geoRes.json();
+          locationKey = geoData?.Key;
+          if (!locationKey) throw new Error('Geen LocationKey gevonden.');
+          localStorage.setItem(coordKey, locationKey);
+        }
+
+        const currUrl = `https://dataservice.accuweather.com/currentconditions/v1/${locationKey}?apikey=${encodeURIComponent(key)}&language=nl-nl&details=true`;
+        const fore5Url = `https://dataservice.accuweather.com/forecasts/v1/daily/5day/${locationKey}?apikey=${encodeURIComponent(key)}&language=nl-nl&metric=true&details=true`;
+        const hour12Url = `https://dataservice.accuweather.com/forecasts/v1/hourly/12hour/${locationKey}?apikey=${encodeURIComponent(key)}&language=nl-nl&metric=true&details=true`;
+
+        const [currRes, foreRes, hourRes] = await Promise.all([
+          fetch(currUrl),
+          fetch(fore5Url),
+          fetch(hour12Url)
+        ]);
+
+        if (!currRes.ok || !foreRes.ok) {
+          throw new Error(`API-limiet bereikt of fout (${currRes.status}/${foreRes.status})`);
+        }
+
+        const currList = await currRes.json();
+        const curr = currList[0] || {};
+        const foreData = await foreRes.json();
+        const dailyList = foreData?.DailyForecasts || [];
+
+        const dailyMap = {};
+        for (const d of dailyList) {
+          const dateKey = String(d.Date || '').slice(0, 10);
+          if (dateKey) {
+            const phrase = d?.Day?.IconPhrase || 'Wisselend';
+            dailyMap[dateKey] = {
+              dateKey,
+              minTemp: parseNum(d?.Temperature?.Minimum?.Value),
+              maxTemp: parseNum(d?.Temperature?.Maximum?.Value),
+              rainChance: parseNum(d?.Day?.PrecipitationProbability),
+              rainMm: parseNum(d?.Day?.TotalLiquid?.Value),
+              iconEmoji: emojiFromDesc(phrase)
+            };
+          }
+        }
+
+        const hourlyMap = {};
+        if (hourRes.ok) {
+          const hourList = await hourRes.json();
+          for (const h of (hourList || [])) {
+            const rawDt = String(h.DateTime || '');
+            if (rawDt.length >= 13) {
+              const hourKey = `${rawDt.slice(0, 13)}:00`;
+              hourlyMap[hourKey] = {
+                temp: parseNum(h?.Temperature?.Value),
+                rainChance: parseNum(h?.PrecipitationProbability),
+                rainMm: parseNum(h?.TotalLiquid?.Value),
+                iconEmoji: emojiFromDesc(h?.IconPhrase || '')
+              };
+            }
+          }
+        }
+
+        const wText = curr.WeatherText || 'Onbekend';
+        const windSpeed = parseNum(curr?.Wind?.Speed?.Metric?.Value);
+        const windDir = curr?.Wind?.Direction?.Localized || '';
+
+        return {
+          sourceName: 'AccuWeather',
+          subtitle: `ID ${locationKey} (12u/5d trial)`,
+          color,
+          isSuccess: true,
+          currentTemp: parseNum(curr?.Temperature?.Metric?.Value),
+          feelTemp: parseNum(curr?.RealFeelTemperature?.Metric?.Value),
+          currentDescription: wText,
+          currentEmoji: emojiFromDesc(wText),
+          windInfo: `${windDir} ${windSpeed !== null ? Math.round(windSpeed) : '-'} km/u`.trim(),
+          precipCurrentMm: parseNum(curr?.Precip1hr?.Metric?.Value),
+          dailyMap,
+          hourlyMap
+        };
+      } catch (e) {
+        return { sourceName: 'AccuWeather', subtitle: 'Niet beschikbaar', color, isSuccess: false, errorMessage: e.message, dailyMap: {}, hourlyMap: {} };
+      }
+    }
+
+    // 4. OPEN-METEO (Volledige 10 dagen + 240 uur verwachting)
+    async function fetchOpenMeteo(loc) {
+      const color = '#16a34a';
+      try {
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}`
+          + `&current=temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m`
+          + `&hourly=temperature_2m,precipitation_probability,precipitation,weather_code`
+          + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max`
+          + `&timezone=Europe%2FAmsterdam&forecast_days=10`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        const curr = data.current || {};
+        const daily = data.daily || {};
+        const hourly = data.hourly || {};
+        const wmo = wmoToDutch(curr.weather_code);
+
+        const dailyMap = {};
+        const dTimes = daily.time || [];
+        for (let i = 0; i < dTimes.length; i++) {
+          const dateKey = dTimes[i];
+          const dWmo = wmoToDutch(daily.weather_code?.[i]);
+          dailyMap[dateKey] = {
+            dateKey,
+            minTemp: parseNum(daily.temperature_2m_min?.[i]),
+            maxTemp: parseNum(daily.temperature_2m_max?.[i]),
+            rainChance: parseNum(daily.precipitation_probability_max?.[i]),
+            rainMm: parseNum(daily.precipitation_sum?.[i]),
+            iconEmoji: dWmo.emoji
+          };
+        }
+
+        const hourlyMap = {};
+        const hTimes = hourly.time || [];
+        for (let i = 0; i < hTimes.length; i++) {
+          const hourKey = hTimes[i]; // "YYYY-MM-DDTHH:00"
+          const hWmo = wmoToDutch(hourly.weather_code?.[i]);
+          hourlyMap[hourKey] = {
+            temp: parseNum(hourly.temperature_2m?.[i]),
+            rainChance: parseNum(hourly.precipitation_probability?.[i]),
+            rainMm: parseNum(hourly.precipitation?.[i]),
+            iconEmoji: hWmo.emoji
+          };
+        }
+
+        return {
+          sourceName: 'Open-Meteo',
+          subtitle: 'ECMWF / Harmonie (72u/10d)',
+          color,
+          isSuccess: true,
+          currentTemp: parseNum(curr.temperature_2m),
+          feelTemp: parseNum(curr.apparent_temperature),
+          currentDescription: wmo.desc,
+          currentEmoji: wmo.emoji,
+          windInfo: `${curr.wind_speed_10m !== undefined ? Math.round(curr.wind_speed_10m) : '-'} km/u`,
+          precipCurrentMm: parseNum(curr.precipitation),
+          dailyMap,
+          hourlyMap
+        };
+      } catch (e) {
+        return { sourceName: 'Open-Meteo', subtitle: 'Niet beschikbaar', color, isSuccess: false, errorMessage: e.message, dailyMap: {}, hourlyMap: {} };
+      }
+    }
+
+    // =========================================================================
+    // DATA OPHALEN & CACHING (20 MINUTEN)
+    // =========================================================================
+    const statusBar = document.getElementById('statusBar');
+    const appContent = document.getElementById('appContent');
+    const searchInput = document.getElementById('searchInput');
+
+    async function loadWeather(forceRefresh = false) {
+      const query = searchInput.value.trim();
+      if (!query) return;
+
+      localStorage.setItem('cfg_last_search', query);
+      appContent.innerHTML = `<div class="loader">⏳ Actueel weer, 72-uurs verwachting en 10-daagse grafiek ophalen voor <b>${query}</b>...</div>`;
+
+      try {
+        const loc = await resolveLocation(query);
+        const cacheKey = `pwa_v2_cache_${loc.lat.toFixed(2)}_${loc.lon.toFixed(2)}`;
+
+        if (!forceRefresh) {
+          const rawCache = localStorage.getItem(cacheKey);
+          if (rawCache) {
+            const parsed = JSON.parse(rawCache);
+            const ageMin = (Date.now() - parsed.timestamp) / 60000;
+            if (ageMin < CACHE_MINUTES) {
+              currentSourcesState = parsed.sources;
+              renderDashboard(loc, parsed.sources, new Date(parsed.timestamp), true);
+              return;
+            }
+          }
+        }
+
+        const sources = await Promise.all([
+          fetchBuienradar(loc),
+          fetchWeerlive(loc),
+          fetchAccuWeather(loc),
+          fetchOpenMeteo(loc)
+        ]);
+
+        const now = Date.now();
+        localStorage.setItem(cacheKey, JSON.stringify({ timestamp: now, sources }));
+        currentSourcesState = sources;
+        renderDashboard(loc, sources, new Date(now), false);
+      } catch (err) {
+        statusBar.textContent = 'Er is een fout opgetreden.';
+        appContent.innerHTML = `<div class="loader" style="color: var(--error); font-weight: 600;">⚠️ ${err.message}</div>`;
+      }
+    }
+
+    // =========================================================================
+    // DASHBOARD RENDERING
+    // =========================================================================
+    function renderDashboard(loc, sources, updatedDate, fromCache) {
+      const timeStr = updatedDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+      statusBar.innerHTML = `${fromCache ? '⚡ Uit lokale cache' : '☁️ Live opgehaald'} • <b>${loc.name}</b> (${loc.lat.toFixed(2)}, ${loc.lon.toFixed(2)}) om ${timeStr} (20m cache)`;
+
+      const validTemps = sources.filter(s => s.isSuccess && s.currentTemp !== null).map(s => s.currentTemp);
+      let consensusHtml = '';
+      if (validTemps.length > 0) {
+        const avg = validTemps.reduce((a, b) => a + b, 0) / validTemps.length;
+        const minT = Math.min(...validTemps);
+        const maxT = Math.max(...validTemps);
+        consensusHtml = `
+          <div class="consensus-banner">
+            <div>
+              <div class="label">Gemiddelde nu (${validTemps.length} bronnen)</div>
+              <div class="val-large">${avg.toFixed(1)} °C</div>
+            </div>
+            <div>
+              <div class="label" style="text-align:right;">Spreiding</div>
+              <div class="val-mid">${minT.toFixed(1)}° t/m ${maxT.toFixed(1)}°C</div>
+            </div>
+          </div>
+        `;
+      }
+
+      const currentCardsHtml = sources.map(s => {
+        if (!s.isSuccess) {
+          return `
+            <div class="source-card">
+              <div class="source-header" style="background:${s.color}">
+                <h3>${s.sourceName}</h3>
+                <p>${s.subtitle}</p>
+              </div>
+              <div class="source-body">
+                <div class="error-box">${s.errorMessage}</div>
+              </div>
+            </div>
+          `;
+        }
+        const tempStr = s.currentTemp !== null ? `${s.currentTemp.toFixed(1)}°C` : '--°C';
+        const feelStr = s.feelTemp !== null ? `Gevoel: ${s.feelTemp.toFixed(1)}°C<br/>` : '';
+        const precipStr = s.precipCurrentMm !== null ? ` • ${s.precipCurrentMm.toFixed(1)} mm` : '';
+        return `
+          <div class="source-card">
+            <div class="source-header" style="background:${s.color}">
+              <h3>${s.sourceName}</h3>
+              <p>${s.subtitle}</p>
+            </div>
+            <div class="source-body">
+              <div class="temp-row">
+                <span class="temp-val">${tempStr}</span>
+                <span class="temp-emoji">${s.currentEmoji || '🌤️'}</span>
+              </div>
+              <div class="desc-text">${s.currentDescription || ''}</div>
+              <div class="meta-text">${feelStr}Wind: ${s.windInfo || '-'}${precipStr}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      appContent.innerHTML = `
+        ${consensusHtml}
+
+        <!-- SECTIE 1: ACTUELE STATUS -->
+        <div class="section-header" style="margin-top:4px;">
+          <div class="section-title">Actuele Status (4 Bronnen)</div>
+        </div>
+        <div class="current-grid">${currentCardsHtml}</div>
+
+        <!-- SECTIE 2: 10-DAAGSE LIJNGRAFIEK -->
+        <div class="section-header">
+          <div class="section-title">📈 10-Daagse Voorspelling per Weerdienst</div>
+          <div class="pill-group" id="chartMetricPills">
+            <button type="button" class="pill-btn ${selectedChartMetric === 'maxTemp' ? 'active' : ''}" data-metric="maxTemp">🌡️ Max °C</button>
+            <button type="button" class="pill-btn ${selectedChartMetric === 'minTemp' ? 'active' : ''}" data-metric="minTemp">❄️ Min °C</button>
+            <button type="button" class="pill-btn ${selectedChartMetric === 'rainChance' ? 'active' : ''}" data-metric="rainChance">💧 Kans %</button>
+            <button type="button" class="pill-btn ${selectedChartMetric === 'rainMm' ? 'active' : ''}" data-metric="rainMm">🌧️ Neerslag mm</button>
+          </div>
+        </div>
+        <div class="panel-card">
+          <div class="chart-wrapper">
+            <canvas id="tenDayChart"></canvas>
+          </div>
+          <div class="chart-note">
+            Tik op een punt voor alle details of tik op een weerdienst in de legenda om lijnen aan/uit te zetten.
+          </div>
+        </div>
+
+        <!-- SECTIE 3: WEER PER UUR (KOMENDE 3 DAGEN / 72 UUR) -->
+        <div class="section-header">
+          <div class="section-title">🕒 Weer per Uur (Komende 3 Dagen)</div>
+        </div>
+        <div class="panel-card">
+          <div class="hourly-controls">
+            <div class="pill-group" id="hourlyDayPills">
+              <button type="button" class="pill-btn ${selectedHourlyDayTab === 0 ? 'active' : ''}" data-daytab="0">Dag 1 (0–24u)</button>
+              <button type="button" class="pill-btn ${selectedHourlyDayTab === 1 ? 'active' : ''}" data-daytab="1">Dag 2 (24–48u)</button>
+              <button type="button" class="pill-btn ${selectedHourlyDayTab === 2 ? 'active' : ''}" data-daytab="2">Dag 3 (48–72u)</button>
+              <button type="button" class="pill-btn ${selectedHourlyDayTab === 3 ? 'active' : ''}" data-daytab="3">Alle 72u</button>
+            </div>
+            <div class="pill-group" id="hourlyStepPills">
+              <button type="button" class="pill-btn ${selectedHourlyStep === 1 ? 'active' : ''}" data-step="1">Elk uur (1u)</button>
+              <button type="button" class="pill-btn ${selectedHourlyStep === 3 ? 'active' : ''}" data-step="3">Elke 3u</button>
+            </div>
+          </div>
+          <div id="hourlyTableContainer" class="table-scroll"></div>
+        </div>
+      `;
+
+      // Koppel events voor de grafiek-knoppen
+      document.querySelectorAll('#chartMetricPills .pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedChartMetric = btn.getAttribute('data-metric');
+          document.querySelectorAll('#chartMetricPills .pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          render10DayChart(currentSourcesState);
+        });
+      });
+
+      // Koppel events voor de 72-uurs tabel knoppen
+      document.querySelectorAll('#hourlyDayPills .pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedHourlyDayTab = parseInt(btn.getAttribute('data-daytab'), 10);
+          document.querySelectorAll('#hourlyDayPills .pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          renderHourlyTable(currentSourcesState);
+        });
+      });
+
+      document.querySelectorAll('#hourlyStepPills .pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedHourlyStep = parseInt(btn.getAttribute('data-step'), 10);
+          document.querySelectorAll('#hourlyStepPills .pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          renderHourlyTable(currentSourcesState);
+        });
+      });
+
+      render10DayChart(sources);
+      renderHourlyTable(sources);
+    }
+
+    // =========================================================================
+    // 10-DAAGSE LIJNGRAFIEK RENDERING (CHART.JS)
+    // =========================================================================
+    function render10DayChart(sources) {
+      const canvas = document.getElementById('tenDayChart');
+      if (!canvas || typeof Chart === 'undefined') return;
+
+      const dateKeys = getNext10DateKeys();
+      const labels = dateKeys.map(k => formatDayShort(k));
+
+      const metricLabels = {
+        maxTemp: { unit: '°C', label: 'Maximum Temperatuur (°C)' },
+        minTemp: { unit: '°C', label: 'Minimum Temperatuur (°C)' },
+        rainChance: { unit: '%', label: 'Neerslagkans (%)' },
+        rainMm: { unit: 'mm', label: 'Verwachte Neerslag (mm)' }
+      };
+      const currentMeta = metricLabels[selectedChartMetric];
+
+      const datasets = sources.map(s => {
+        const dataPoints = dateKeys.map(dateKey => {
+          const dayObj = s.dailyMap?.[dateKey];
+          if (!dayObj) return null;
+          const val = dayObj[selectedChartMetric];
+          return (val !== null && val !== undefined) ? Number(val.toFixed(1)) : null;
+        });
+
+        return {
+          label: s.sourceName,
+          data: dataPoints,
+          borderColor: s.color,
+          backgroundColor: s.color,
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.3,
+          spanGaps: false
+        };
+      });
+
+      if (tenDayChartInstance) {
+        tenDayChartInstance.destroy();
+      }
+
+      const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const textColor = isDark ? '#cbd5e1' : '#334155';
+      const gridColor = isDark ? 'rgba(148, 163, 184, 0.15)' : 'rgba(100, 116, 139, 0.15)';
+
+      tenDayChartInstance = new Chart(canvas, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: { color: textColor, boxWidth: 12, usePointStyle: true, font: { size: 11, weight: '600' } }
+            },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => {
+                  const v = ctx.parsed.y;
+                  if (v === null || v === undefined) return `${ctx.dataset.label}: geen data`;
+                  return `${ctx.dataset.label}: ${v} ${currentMeta.unit}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: textColor, font: { size: 11 } },
+              grid: { color: gridColor }
+            },
+            y: {
+              beginAtZero: selectedChartMetric === 'rainChance' || selectedChartMetric === 'rainMm',
+              max: selectedChartMetric === 'rainChance' ? 100 : undefined,
+              ticks: {
+                color: textColor,
+                font: { size: 11 },
+                callback: (val) => `${val}${currentMeta.unit}`
+              },
+              grid: { color: gridColor }
+            }
+          }
+        }
+      });
+    }
+
+    // =========================================================================
+    // 72-UURS TABEL RENDERING (KOMENDE 3 DAGEN PER UUR)
+    // =========================================================================
+    function renderHourlyTable(sources) {
+      const container = document.getElementById('hourlyTableContainer');
+      if (!container) return;
+
+      const all72Hours = getNext72HourKeys();
+      let slicedHours = all72Hours;
+      if (selectedHourlyDayTab === 0) slicedHours = all72Hours.slice(0, 24);
+      else if (selectedHourlyDayTab === 1) slicedHours = all72Hours.slice(24, 48);
+      else if (selectedHourlyDayTab === 2) slicedHours = all72Hours.slice(48, 72);
+
+      const filteredHours = slicedHours.filter((_, idx) => idx % selectedHourlyStep === 0);
+
+      let rowsHtml = '';
+      let lastDateKey = '';
+
+      for (const hourKey of filteredHours) {
+        const dateKey = hourKey.slice(0, 10);
+        const timePart = hourKey.slice(11, 16); // "HH:00"
+
+        if (dateKey !== lastDateKey) {
+          lastDateKey = dateKey;
+          rowsHtml += `
+            <tr class="day-divider">
+              <td colspan="5">📅 ${formatDayShort(dateKey)}</td>
+            </tr>
+          `;
+        }
+
+        const cellsHtml = sources.map(s => {
+          const h = s.hourlyMap?.[hourKey];
+          if (!h || h.temp === null || h.temp === undefined) {
+            return `<td style="color:var(--text-muted)">—</td>`;
+          }
+          const tempStr = `${h.temp.toFixed(1)}°`;
+          const rainParts = [];
+          if (h.rainChance !== null && h.rainChance !== undefined) rainParts.push(`${Math.round(h.rainChance)}%`);
+          if (h.rainMm !== null && h.rainMm !== undefined && h.rainMm > 0) rainParts.push(`${h.rainMm.toFixed(1)}mm`);
+          const rainSub = rainParts.length > 0 ? `<span class="cell-rain">💧 ${rainParts.join(' • ')}</span>` : '';
+
+          return `
+            <td>
+              <div class="cell-weather">
+                <span>${h.iconEmoji || '🌤️'}</span>
+                <span class="cell-temp">${tempStr}</span>
+              </div>
+              ${rainSub}
+            </td>
+          `;
+        }).join('');
+
+        rowsHtml += `
+          <tr>
+            <td class="hour-cell">${timePart}</td>
+            ${cellsHtml}
+          </tr>
+        `;
+      }
+
+      const headersHtml = sources.map(s => `
+        <th><span class="dot" style="background:${s.color}"></span>${s.sourceName}</th>
+      `).join('');
+
+      container.innerHTML = `
+        <table class="comp-table">
+          <thead>
+            <tr>
+              <th style="width:14%">Uur</th>
+              ${headersHtml}
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      `;
+    }
+
+    // =========================================================================
+    // EVENTS, MODAL & PWA INSTALLATIE
+    // =========================================================================
+    document.getElementById('searchForm').addEventListener('submit', e => {
+      e.preventDefault();
+      loadWeather(false);
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', () => loadWeather(true));
+
+    const keyModal = document.getElementById('keyModal');
+    const weerliveInput = document.getElementById('weerliveInput');
+    const accuInput = document.getElementById('accuInput');
+
+    document.getElementById('keyBtn').addEventListener('click', () => {
+      weerliveInput.value = getWeerliveKey();
+      accuInput.value = getAccuWeatherKey();
+      keyModal.classList.add('active');
+    });
+
+    document.getElementById('closeModalBtn').addEventListener('click', () => {
+      keyModal.classList.remove('active');
+    });
+
+    document.getElementById('saveKeysBtn').addEventListener('click', () => {
+      localStorage.setItem('cfg_weerlive_key', weerliveInput.value.trim());
+      localStorage.setItem('cfg_accuweather_key', accuInput.value.trim());
+      keyModal.classList.remove('active');
+      loadWeather(true);
+    });
+
+    let deferredPrompt = null;
+    const installBtn = document.getElementById('installBtn');
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'inline-flex';
+    });
+
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      installBtn.style.display = 'none';
+    });
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+
+    const lastSearch = localStorage.getItem('cfg_last_search');
+    if (lastSearch) searchInput.value = lastSearch;
+    loadWeather(false);
+  </script>
+</body>
+</html>
